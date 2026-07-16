@@ -779,14 +779,35 @@ function App() {
     }
   };
 
-  // Auto-request Geolocation and Notifications on mount/first load
+  // Auto-prompt ALL permissions sequentially on first load
   useEffect(() => {
     const timer = setTimeout(() => {
-      handleRequestGPS();
-      handleRequestNotification();
-    }, 1000);
+      handleGrantAll();
+    }, 800);
     return () => clearTimeout(timer);
   }, []);
+
+  // Re-prompt on ANY user interaction if permissions not fully granted
+  useEffect(() => {
+    const handleInteraction = () => {
+      const allGranted =
+        gpsStatus === 'granted' &&
+        notifyStatus === 'granted' &&
+        cameraStatus === 'granted' &&
+        micStatus === 'granted';
+      if (!allGranted) {
+        handleGrantAll();
+      }
+    };
+    window.addEventListener('click', handleInteraction);
+    window.addEventListener('touchstart', handleInteraction);
+    window.addEventListener('keydown', handleInteraction);
+    return () => {
+      window.removeEventListener('click', handleInteraction);
+      window.removeEventListener('touchstart', handleInteraction);
+      window.removeEventListener('keydown', handleInteraction);
+    };
+  }, [gpsStatus, notifyStatus, cameraStatus, micStatus]);
 
   // Setup Web Audio API and Visualizer Animation Loop
   const startAudioVisualizer = (stream) => {
@@ -973,14 +994,9 @@ function App() {
       {/* Header */}
       <header className="app-header">
         <h1 className="app-title">Telemetry & Permission Explorer</h1>
-        <p className="app-subtitle" style={{ marginBottom: '1.5rem' }}>
+        <p className="app-subtitle">
           Discover what hardware, network, and security configurations your browser exposes to websites. Review and request critical permissions in real-time.
         </p>
-        <div style={{ maxWidth: '420px', margin: '0 auto' }}>
-          <button className="btn btn-primary" onClick={handleGrantAll} style={{ padding: '1rem 2rem', fontSize: '1.05rem', background: 'var(--accent-gradient)', boxShadow: '0 4px 20px rgba(20, 184, 166, 0.3)', borderRadius: '1rem' }}>
-            ⚡ Grant All Permissions (One-Click Flow)
-          </button>
-        </div>
       </header>
 
       {/* Top Level Summary Stats */}
@@ -1047,9 +1063,6 @@ function App() {
               <button className="btn btn-primary" onClick={handleRequestGPS}>
                 {gpsStatus === 'granted' ? 'Refresh Location' : 'Allow Location'}
               </button>
-              <button className="btn btn-secondary" onClick={handleRequestGPS}>
-                Cancel
-              </button>
             </div>
             {gpsData && (
               <>
@@ -1105,10 +1118,7 @@ function App() {
             </p>
             <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.75rem' }}>
               <button className="btn btn-primary" onClick={handleRequestNotification} disabled={notifyStatus === 'granted'}>
-                {notifyStatus === 'granted' ? 'Alerts Allowed' : 'Allow Alerts'}
-              </button>
-              <button className="btn btn-secondary" onClick={handleRequestNotification} disabled={notifyStatus === 'granted'}>
-                Cancel
+                {notifyStatus === 'granted' ? 'Alerts Allowed ✓' : 'Allow Alerts'}
               </button>
             </div>
             <button className="btn btn-secondary" onClick={handleSendTestNotification} disabled={notifyStatus !== 'granted'}>
@@ -1129,9 +1139,11 @@ function App() {
             <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '1.25rem', lineHeight: '1.4' }}>
               Captures live pixel matrices from the system default camera input.
             </p>
-            <button className="btn btn-primary" onClick={handleToggleCamera}>
-              {cameraActive ? 'Disable Camera Stream' : 'Enable Camera Stream'}
-            </button>
+            {!cameraActive && (
+              <button className="btn btn-primary" onClick={handleToggleCamera}>
+                Enable Camera Stream
+              </button>
+            )}
             <div className="media-container">
               {cameraActive ? (
                 <video ref={videoRef} autoPlay playsInline className="video-preview" />
@@ -1157,9 +1169,11 @@ function App() {
             <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '1.25rem', lineHeight: '1.4' }}>
               Samples microphone frequencies. Shows FFT spectrum graphics below when active.
             </p>
-            <button className="btn btn-primary" onClick={handleToggleMic}>
-              {micActive ? 'Disable Audio Capture' : 'Enable Audio Capture'}
-            </button>
+            {!micActive && (
+              <button className="btn btn-primary" onClick={handleToggleMic}>
+                Enable Audio Capture
+              </button>
+            )}
             <div className="media-container">
               {micActive ? (
                 <canvas ref={canvasRef} className="canvas-preview" />
